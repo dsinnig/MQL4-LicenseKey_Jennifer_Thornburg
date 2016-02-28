@@ -11,7 +11,7 @@
 #property library
 #property copyright "Daniel Sinnig"
 #property link "https://www.biiuse.com"
-#property strict
+//#property strict
 
 class License {
 private: 
@@ -102,7 +102,7 @@ public:
    static datetime getExpirationDate(string cipherString) {
       string rawLicense = decryptString(cipherString);
       string dateString = StringSubstr(rawLicense, 33,8);
-      return convertYYMMDDToDatetime(dateString);
+      return convertYYMMDDToDatetime(dateString) + 60*60*24; //add one extra day to expiration date
    }
    
    static int getRemainingDays(string cipherString, datetime refTime) {
@@ -112,7 +112,7 @@ public:
       if ((long) expirationDate < (long) refTime) return 0;
       long remainingSeconds = (long) expirationDate - (long) refTime;
       int remainingDays = (int) remainingSeconds / (60 * 60 * 24);
-      return remainingDays;
+      return remainingDays + 1; //add one extra day
    }
    
    static bool hasExpired(string cipherString, datetime refTime) {
@@ -165,12 +165,12 @@ int License::secretFactor2 = 177;
 bool validateProductLicense(string payPalEmailAddress, string license, int productID) {
    
    if (IsTesting()) {
-      Print ("Back-testing mode - no license required");
+      Print ("Back testing mode - no license required");
       return true;
    }
    
    if (!IsConnected()) {
-      Print ("Please to your trading account to use this EA / Indicator");
+      Print ("Please connect to your trading account to use this EA / Indicator");
       return false;
    }
    
@@ -186,14 +186,16 @@ bool validateProductLicense(string payPalEmailAddress, string license, int produ
    
    if (license == "") {
       Print("Please enter a license key in the Inputs section.");
+      MessageBox("Please enter a license key in the Inputs section.", "License key", MB_OK);
       return false;
    }
    if (payPalEmailAddress == "") {
       Print("Please enter your PayPal email address in the Inputs section.");
+      MessageBox("Please enter your PayPal email address in the Inputs section.", "Email address", MB_OK);
       return false;
    }
    
-   if (License::validateLicense(license, payPalEmailAddress, 65, TimeCurrent())) {
+   if (License::validateLicense(license, payPalEmailAddress, productID, TimeCurrent())) {
       Print("License successfully validated");
       //int remainingDays = License::getRemainingDays("89CBGDLOIHVBXD4AB763GF4U6W8YA0299768E9DEDDEGNIJSOPM", TimeCurrent());
       datetime expDate = License::getExpirationDate(license);
@@ -201,12 +203,16 @@ bool validateProductLicense(string payPalEmailAddress, string license, int produ
       Print("Expiration date: ", TimeYear(expDate), "/", TimeMonth(expDate), "/", TimeDay(expDate), " ", TimeHour(expDate), ":", TimeMinute(expDate), ":", TimeSeconds(expDate), " (", remainingDays, " days remaining)");
       return true;
    } else {
-      if ((License::isValidDoNotCheckExpirationDate(license, payPalEmailAddress, 65)) && (!License::hasExpired("license", TimeCurrent()))) {
-         datetime expDate = License::getExpirationDate(license);
+      if ((License::isValidDoNotCheckExpirationDate(license, payPalEmailAddress, productID)) && (!License::hasExpired("license", TimeCurrent()))) {
+         expDate = License::getExpirationDate(license);
          Print("License expired on: ", TimeYear(expDate), "/", TimeMonth(expDate), "/", TimeDay(expDate), " ", TimeHour(expDate), ":", TimeMinute(expDate), ":", TimeSeconds(expDate), ": Download your new license from www.simplycombo.com");
+         
+         MessageBox("License expired on: " + TimeYear(expDate) + "/" + TimeMonth(expDate) + "/" + TimeDay(expDate) + " " + TimeHour(expDate) + ":" + TimeMinute(expDate) + ":" + TimeSeconds(expDate) + ": Download your new license from www.simplycombo.com", "License expired", MB_OK);
          return false;
       }
       Print("License key is invalid. Download a valid license key for this product from www.simplycombo.com");
+      MessageBox("License key is invalid. Download a valid license key for this product from www.simplycombo.com", "License invalid", MB_OK);
+      
       return false;
    }
    return true;
